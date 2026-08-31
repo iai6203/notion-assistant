@@ -1,2 +1,9 @@
 # misc
 .DS_Store
+
+# dependencies and generated output
+node_modules/
+build/
+
+# local environment
+.env
