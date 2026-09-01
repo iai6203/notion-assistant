@@ -31,6 +31,8 @@ test("exposes server information over MCP stdio", async () => {
         "get-resource",
         "get-archives",
         "get-archive",
+        "get-area-resource-detail",
+        "update-area-resource",
       ],
     );
 

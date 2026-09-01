@@ -6,8 +6,10 @@ import {
   getArchives,
   getArea,
   getAreas,
+  getAreaResourceDetail,
   getResource,
   getResources,
+  updateAreaResource,
 } from "../services/area-resource.service.js";
 
 function createTextResult(value: unknown) {
@@ -81,5 +83,50 @@ export function registerAreaResourceTools(server: McpServer): void {
       }),
     },
     async ({ name }) => createTextResult(await getArchive(name)),
+  );
+
+  server.registerTool(
+    "get-area-resource-detail",
+    {
+      title: "Get Area Resource Detail",
+      description:
+        "Retrieve the properties and Markdown body of an area, resource, or archive Notion page.",
+      inputSchema: z.object({
+        pageId: z.string().describe("The ID of the Notion page to retrieve."),
+      }),
+    },
+    async ({ pageId }) =>
+      createTextResult(await getAreaResourceDetail(pageId)),
+  );
+
+  server.registerTool(
+    "update-area-resource",
+    {
+      title: "Update Area Resource",
+      description:
+        "Update the title, status, or Markdown body of an area, resource, or archive Notion page.",
+      inputSchema: z
+        .object({
+          pageId: z.string().describe("The ID of the Notion page to update."),
+          title: z.string().optional().describe("The new page title."),
+          status: z
+            .enum(["영역", "자원", "아카이브"])
+            .optional()
+            .describe("The new area-resource status."),
+          body: z
+            .string()
+            .optional()
+            .describe("The new page body in Markdown. Replaces the existing body."),
+        })
+        .refine(
+          ({ title, status, body }) =>
+            title !== undefined || status !== undefined || body !== undefined,
+          { message: "At least one of title, status, or body is required." },
+        ),
+    },
+    async ({ pageId, title, status, body }) =>
+      createTextResult(
+        await updateAreaResource(pageId, { title, status, body }),
+      ),
   );
 }
