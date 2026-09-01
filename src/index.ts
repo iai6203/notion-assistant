@@ -2,6 +2,8 @@ import { McpServer } from "@modelcontextprotocol/server";
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import * as z from "zod/v4";
 
+import { registerAreaResourceTools } from "./tools/area-resource.tool.js";
+
 const SERVER_NAME = "notion-assistant";
 const SERVER_VERSION = "0.1.0";
 
@@ -45,6 +47,8 @@ function buildServer(): McpServer {
       };
     },
   );
+
+  registerAreaResourceTools(server);
 
   return server;
 }

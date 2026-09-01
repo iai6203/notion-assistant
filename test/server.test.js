@@ -23,7 +23,15 @@ test("exposes server information over MCP stdio", async () => {
     const { tools } = await client.listTools();
     assert.deepEqual(
       tools.map(({ name }) => name),
-      ["get-server-info"],
+      [
+        "get-server-info",
+        "get-areas",
+        "get-area",
+        "get-resources",
+        "get-resource",
+        "get-archives",
+        "get-archive",
+      ],
     );
 
     const result = await client.callTool({ name: "get-server-info" });
