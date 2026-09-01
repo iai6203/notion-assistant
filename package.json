@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "clean": "node -e \"require('node:fs').rmSync('build', { recursive: true, force: true })\"",
+    "build": "tsc --noEmit && npm run clean && esbuild src/index.ts --bundle --platform=node --format=esm --target=node24 --outfile=build/index.js",
     "start": "node build/index.js",
     "test": "npm run build && node --test test/server.test.js"
   },
@@ -19,6 +20,7 @@
   "devDependencies": {
     "@modelcontextprotocol/client": "^2.0.0",
     "@types/node": "^26.4.0",
+    "esbuild": "^0.28.2",
     "typescript": "^7.0.2"
   }
 }
