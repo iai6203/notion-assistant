@@ -38,13 +38,23 @@ test("exposes server information over MCP stdio", async () => {
       ],
     );
 
+    const createTool = tools.find(
+      ({ name }) => name === "create-area-resource",
+    );
+    assert.ok(createTool);
+    assert.ok(createTool.inputSchema.required.includes("template"));
+    assert.equal(
+      createTool.inputSchema.properties.template.properties.type.const,
+      "template_id",
+    );
+
     const invalidCreateResult = await client.callTool({
       name: "create-area-resource",
       arguments: {
         title: "Invalid create",
         status: "영역",
         body: "",
-        template: { type: "default" },
+        template: { type: "template_id", templateId: "template-id" },
       },
     });
     assert.equal(invalidCreateResult.isError, true);

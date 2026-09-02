@@ -2,9 +2,10 @@ import { notion } from "../lib/notion.js";
 
 export type AreaResourceStatus = "영역" | "자원" | "아카이브";
 
-export type AreaResourceTemplate =
-  | { type: "default" }
-  | { type: "template_id"; templateId: string };
+export type AreaResourceTemplate = {
+  type: "template_id";
+  templateId: string;
+};
 
 function getDataSourceId(): string {
   const dataSourceId = process.env.AREA_RESOURCE_DATASOURCE_ID;
@@ -99,13 +100,10 @@ export function createAreaResource({
     ...(template === undefined
       ? {}
       : {
-          template:
-            template.type === "default"
-              ? { type: "default" as const }
-              : {
-                  type: "template_id" as const,
-                  template_id: template.templateId,
-                },
+          template: {
+            type: "template_id" as const,
+            template_id: template.templateId,
+          },
         }),
   });
 }

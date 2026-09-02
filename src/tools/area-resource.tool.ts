@@ -14,13 +14,10 @@ import {
   updateAreaResource,
 } from "../services/area-resource.service.js";
 
-const areaResourceTemplateSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("default") }),
-  z.object({
-    type: z.literal("template_id"),
-    templateId: z.string(),
-  }),
-]);
+const areaResourceTemplateSchema = z.object({
+  type: z.literal("template_id"),
+  templateId: z.string(),
+});
 
 function createTextResult(value: unknown) {
   return {
