@@ -152,9 +152,9 @@ export function registerAreaResourceTools(server: McpServer): void {
             .string()
             .optional()
             .describe("The initial page body in Markdown."),
-          template: areaResourceTemplateSchema
-            .optional()
-            .describe("The database template to apply to the new page."),
+          template: areaResourceTemplateSchema.describe(
+            "The required database template to apply to the new page.",
+          ),
         })
         .refine(
           ({ body, template }) =>
