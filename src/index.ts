@@ -5,7 +5,7 @@ import * as z from "zod/v4";
 import { registerAreaResourceTools } from "./tools/area-resource.tool.js";
 
 const SERVER_NAME = "notion-assistant";
-const SERVER_VERSION = "0.0.2";
+const SERVER_VERSION = "0.0.3";
 
 const serverInfoSchema = z.object({
   name: z.string(),
