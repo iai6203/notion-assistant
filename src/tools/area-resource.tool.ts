@@ -2,15 +2,25 @@ import { McpServer } from "@modelcontextprotocol/server";
 import * as z from "zod/v4";
 
 import {
+  createAreaResource,
   getArchive,
   getArchives,
   getArea,
   getAreas,
   getAreaResourceDetail,
+  getAreaResourceTemplates,
   getResource,
   getResources,
   updateAreaResource,
 } from "../services/area-resource.service.js";
+
+const areaResourceTemplateSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("default") }),
+  z.object({
+    type: z.literal("template_id"),
+    templateId: z.string(),
+  }),
+]);
 
 function createTextResult(value: unknown) {
   return {
@@ -97,6 +107,65 @@ export function registerAreaResourceTools(server: McpServer): void {
     },
     async ({ pageId }) =>
       createTextResult(await getAreaResourceDetail(pageId)),
+  );
+
+  server.registerTool(
+    "get-area-resource-templates",
+    {
+      title: "Get Area Resource Templates",
+      description:
+        "List templates available in the Notion area-resource database.",
+      inputSchema: z.object({
+        name: z.string().optional().describe("Filter templates by name."),
+        startCursor: z
+          .string()
+          .optional()
+          .describe("The pagination cursor returned by a previous request."),
+        pageSize: z
+          .number()
+          .int()
+          .min(1)
+          .max(100)
+          .optional()
+          .describe("The number of templates to return."),
+      }),
+    },
+    async ({ name, startCursor, pageSize }) =>
+      createTextResult(
+        await getAreaResourceTemplates({ name, startCursor, pageSize }),
+      ),
+  );
+
+  server.registerTool(
+    "create-area-resource",
+    {
+      title: "Create Area Resource",
+      description:
+        "Create an area, resource, or archive in the Notion area-resource database.",
+      inputSchema: z
+        .object({
+          title: z.string().describe("The page title."),
+          status: z
+            .enum(["영역", "자원", "아카이브"])
+            .describe("The area-resource status."),
+          body: z
+            .string()
+            .optional()
+            .describe("The initial page body in Markdown."),
+          template: areaResourceTemplateSchema
+            .optional()
+            .describe("The database template to apply to the new page."),
+        })
+        .refine(
+          ({ body, template }) =>
+            body === undefined || template === undefined,
+          { message: "Body and template cannot be provided together" },
+        ),
+    },
+    async ({ title, status, body, template }) =>
+      createTextResult(
+        await createAreaResource({ title, status, body, template }),
+      ),
   );
 
   server.registerTool(

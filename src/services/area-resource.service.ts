@@ -2,6 +2,10 @@ import { notion } from "../lib/notion.js";
 
 export type AreaResourceStatus = "영역" | "자원" | "아카이브";
 
+export type AreaResourceTemplate =
+  | { type: "default" }
+  | { type: "template_id"; templateId: string };
+
 function getDataSourceId(): string {
   const dataSourceId = process.env.AREA_RESOURCE_DATASOURCE_ID;
 
@@ -40,6 +44,23 @@ function queryByName(name: string, status: AreaResourceStatus) {
   });
 }
 
+export function getAreaResourceTemplates({
+  name,
+  startCursor,
+  pageSize,
+}: {
+  name?: string;
+  startCursor?: string;
+  pageSize?: number;
+} = {}) {
+  return notion.dataSources.listTemplates({
+    data_source_id: getDataSourceId(),
+    ...(name === undefined ? {} : { name }),
+    ...(startCursor === undefined ? {} : { start_cursor: startCursor }),
+    ...(pageSize === undefined ? {} : { page_size: pageSize }),
+  });
+}
+
 export async function getAreaResourceDetail(pageId: string) {
   const [page, content] = await Promise.all([
     notion.pages.retrieve({ page_id: pageId }),
@@ -47,6 +68,46 @@ export async function getAreaResourceDetail(pageId: string) {
   ]);
 
   return { page, content };
+}
+
+export function createAreaResource({
+  title,
+  status,
+  body,
+  template,
+}: {
+  title: string;
+  status: AreaResourceStatus;
+  body?: string;
+  template?: AreaResourceTemplate;
+}) {
+  if (body !== undefined && template !== undefined) {
+    throw new Error("Body and template cannot be provided together");
+  }
+
+  return notion.pages.create({
+    parent: { data_source_id: getDataSourceId() },
+    properties: {
+      이름: {
+        title: [{ text: { content: title } }],
+      },
+      상태: {
+        status: { name: status },
+      },
+    },
+    ...(body === undefined ? {} : { markdown: body }),
+    ...(template === undefined
+      ? {}
+      : {
+          template:
+            template.type === "default"
+              ? { type: "default" as const }
+              : {
+                  type: "template_id" as const,
+                  template_id: template.templateId,
+                },
+        }),
+  });
 }
 
 export async function updateAreaResource(

@@ -32,8 +32,25 @@ test("exposes server information over MCP stdio", async () => {
         "get-archives",
         "get-archive",
         "get-area-resource-detail",
+        "get-area-resource-templates",
+        "create-area-resource",
         "update-area-resource",
       ],
+    );
+
+    const invalidCreateResult = await client.callTool({
+      name: "create-area-resource",
+      arguments: {
+        title: "Invalid create",
+        status: "영역",
+        body: "",
+        template: { type: "default" },
+      },
+    });
+    assert.equal(invalidCreateResult.isError, true);
+    assert.match(
+      invalidCreateResult.content[0].text,
+      /Body and template cannot be provided together/,
     );
 
     const result = await client.callTool({ name: "get-server-info" });
