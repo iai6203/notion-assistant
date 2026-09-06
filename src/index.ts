@@ -7,7 +7,7 @@ import { registerNoteTools } from "./tools/note.tool.js";
 import { registerProjectTools } from "./tools/project.tool.js";
 
 const SERVER_NAME = "notion-assistant";
-const SERVER_VERSION = "0.0.3";
+const SERVER_VERSION = "0.0.4";
 
 const serverInfoSchema = z.object({
   name: z.string(),
