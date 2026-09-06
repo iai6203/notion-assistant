@@ -14,16 +14,12 @@ import {
   updateAreaResource,
 } from "../services/area-resource.service.js";
 
+import { createTextResult } from "./tool-result.js";
+
 const areaResourceTemplateSchema = z.object({
   type: z.literal("template_id"),
   templateId: z.string(),
 });
-
-function createTextResult(value: unknown) {
-  return {
-    content: [{ type: "text" as const, text: JSON.stringify(value) }],
-  };
-}
 
 export function registerAreaResourceTools(server: McpServer): void {
   server.registerTool(
