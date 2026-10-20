@@ -4,12 +4,17 @@ import * as z from "zod/v4";
 import {
   createProject,
   deleteProject,
+  editProjectBody,
   getProjectDetail,
   getProjects,
   getProjectStatuses,
   updateProject,
 } from "../services/project.service.js";
 
+import {
+  allowDeletingContentSchema,
+  pageBodyEditsSchema,
+} from "./page-body-edit.js";
 import { createTextResult } from "./tool-result.js";
 
 const projectStatusSchema = z
@@ -153,7 +158,7 @@ export function registerProjectTools(server: McpServer): void {
             .string()
             .optional()
             .describe(
-              "The new project body in Markdown. Replaces the existing body.",
+              "The new project body in Markdown. Replaces the existing body; use edit-project-body for partial edits.",
             ),
           status: projectStatusSchema,
           startDate: startDateSchema,
@@ -214,6 +219,22 @@ export function registerProjectTools(server: McpServer): void {
           noteIds,
         }),
       ),
+  );
+
+  server.registerTool(
+    "edit-project-body",
+    {
+      title: "Edit Project Body",
+      description:
+        "Partially edit a Notion project's Markdown body with search-and-replace. Retrieve the body with get-project-detail first.",
+      inputSchema: z.object({
+        pageId: z.string().describe("The ID of the Notion project page to edit."),
+        edits: pageBodyEditsSchema,
+        allowDeletingContent: allowDeletingContentSchema,
+      }),
+    },
+    async ({ pageId, edits, allowDeletingContent }) =>
+      createTextResult(await editProjectBody(pageId, edits, allowDeletingContent)),
   );
 
   server.registerTool(

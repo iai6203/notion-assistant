@@ -4,11 +4,16 @@ import * as z from "zod/v4";
 import {
   createNote,
   deleteNote,
+  editNoteBody,
   getNoteDetail,
   getNotes,
   updateNote,
 } from "../services/note.service.js";
 
+import {
+  allowDeletingContentSchema,
+  pageBodyEditsSchema,
+} from "./page-body-edit.js";
 import { createTextResult } from "./tool-result.js";
 
 const relationIdsSchema = z
@@ -110,7 +115,7 @@ export function registerNoteTools(server: McpServer): void {
           body: z
             .string()
             .optional()
-            .describe("The new note body in Markdown. Replaces the existing body."),
+            .describe("The new note body in Markdown. Replaces the existing body; use edit-note-body for partial edits."),
           pinned: z
             .boolean()
             .optional()
@@ -162,6 +167,22 @@ export function registerNoteTools(server: McpServer): void {
           relatedNoteIds,
         }),
       ),
+  );
+
+  server.registerTool(
+    "edit-note-body",
+    {
+      title: "Edit Note Body",
+      description:
+        "Partially edit a Notion note's Markdown body with search-and-replace. Retrieve the body with get-note-detail first.",
+      inputSchema: z.object({
+        pageId: z.string().describe("The ID of the Notion note page to edit."),
+        edits: pageBodyEditsSchema,
+        allowDeletingContent: allowDeletingContentSchema,
+      }),
+    },
+    async ({ pageId, edits, allowDeletingContent }) =>
+      createTextResult(await editNoteBody(pageId, edits, allowDeletingContent)),
   );
 
   server.registerTool(

@@ -3,6 +3,7 @@ import * as z from "zod/v4";
 
 import {
   createAreaResource,
+  editAreaResourceBody,
   getArchive,
   getArchives,
   getArea,
@@ -14,6 +15,10 @@ import {
   updateAreaResource,
 } from "../services/area-resource.service.js";
 
+import {
+  allowDeletingContentSchema,
+  pageBodyEditsSchema,
+} from "./page-body-edit.js";
 import { createTextResult } from "./tool-result.js";
 
 const areaResourceTemplateSchema = z.object({
@@ -178,7 +183,7 @@ export function registerAreaResourceTools(server: McpServer): void {
           body: z
             .string()
             .optional()
-            .describe("The new page body in Markdown. Replaces the existing body."),
+            .describe("The new page body in Markdown. Replaces the existing body; use edit-area-resource-body for partial edits."),
         })
         .refine(
           ({ title, status, body }) =>
@@ -190,5 +195,21 @@ export function registerAreaResourceTools(server: McpServer): void {
       createTextResult(
         await updateAreaResource(pageId, { title, status, body }),
       ),
+  );
+
+  server.registerTool(
+    "edit-area-resource-body",
+    {
+      title: "Edit Area Resource Body",
+      description:
+        "Partially edit the Markdown body of an area, resource, or archive Notion page with search-and-replace. Retrieve the body with get-area-resource-detail first.",
+      inputSchema: z.object({
+        pageId: z.string().describe("The ID of the Notion page to edit."),
+        edits: pageBodyEditsSchema,
+        allowDeletingContent: allowDeletingContentSchema,
+      }),
+    },
+    async ({ pageId, edits, allowDeletingContent }) =>
+      createTextResult(await editAreaResourceBody(pageId, edits, allowDeletingContent)),
   );
 }

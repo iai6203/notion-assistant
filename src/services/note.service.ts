@@ -1,4 +1,4 @@
-import { notion } from "../lib/notion.js";
+import { editPageBody, notion, type PageBodyEdit } from "../lib/notion.js";
 
 function getDataSourceId(): string {
   const dataSourceId = process.env.NOTE_DATASOURCE_ID;
@@ -174,6 +174,14 @@ export async function updateNote(
         });
 
   return { page, content };
+}
+
+export function editNoteBody(
+  pageId: string,
+  edits: PageBodyEdit[],
+  allowDeletingContent?: boolean,
+) {
+  return editPageBody(pageId, edits, allowDeletingContent);
 }
 
 export function deleteNote(pageId: string) {

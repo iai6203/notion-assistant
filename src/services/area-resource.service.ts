@@ -1,4 +1,4 @@
-import { notion } from "../lib/notion.js";
+import { editPageBody, notion, type PageBodyEdit } from "../lib/notion.js";
 
 export type AreaResourceStatus = "영역" | "자원" | "아카이브";
 
@@ -157,6 +157,14 @@ export async function updateAreaResource(
         });
 
   return { page, content };
+}
+
+export function editAreaResourceBody(
+  pageId: string,
+  edits: PageBodyEdit[],
+  allowDeletingContent?: boolean,
+) {
+  return editPageBody(pageId, edits, allowDeletingContent);
 }
 
 export function getAreas() {

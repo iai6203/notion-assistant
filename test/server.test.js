@@ -68,16 +68,19 @@ test("exposes server information over MCP stdio", async () => {
         "get-area-resource-templates",
         "create-area-resource",
         "update-area-resource",
+        "edit-area-resource-body",
         "get-notes",
         "get-note-detail",
         "create-note",
         "update-note",
+        "edit-note-body",
         "delete-note",
         "get-project-statuses",
         "get-projects",
         "get-project-detail",
         "create-project",
         "update-project",
+        "edit-project-body",
         "delete-project",
       ],
     );
@@ -136,6 +139,25 @@ test("exposes server information over MCP stdio", async () => {
       assertNullableString(schema.properties.endDate);
     }
 
+    for (const name of [
+      "edit-note-body",
+      "edit-project-body",
+      "edit-area-resource-body",
+    ]) {
+      const schema = getTool(tools, name).inputSchema;
+      assertRequired(schema, "pageId");
+      assertRequired(schema, "edits");
+      assert.equal(schema.properties.edits.minItems, 1);
+      assert.equal(schema.properties.edits.maxItems, 100);
+      assert.deepEqual(schema.properties.edits.items.required.sort(), [
+        "newStr",
+        "oldStr",
+      ]);
+      assert.equal(schema.properties.edits.items.properties.oldStr.minLength, 1);
+      assert.equal(schema.properties.allowDeletingContent.type, "boolean");
+      assert.equal(schema.required.includes("allowDeletingContent"), false);
+    }
+
     const invalidCreateResult = await client.callTool({
       name: "create-area-resource",
       arguments: {
@@ -162,6 +184,19 @@ test("exposes server information over MCP stdio", async () => {
       "update-project",
       { pageId: "project-page-id" },
       /At least one project field must be provided\./,
+    );
+
+    await assertValidationError(
+      client,
+      "edit-note-body",
+      { pageId: "note-page-id", edits: [] },
+      />=1/,
+    );
+    await assertValidationError(
+      client,
+      "edit-note-body",
+      { pageId: "note-page-id", edits: [{ oldStr: "", newStr: "x" }] },
+      />=1/,
     );
 
     for (const name of ["get-notes", "get-projects"]) {

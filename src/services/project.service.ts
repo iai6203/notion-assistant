@@ -1,4 +1,4 @@
-import { notion } from "../lib/notion.js";
+import { editPageBody, notion, type PageBodyEdit } from "../lib/notion.js";
 
 function getDataSourceId(): string {
   const dataSourceId = process.env.PROJECT_DATASOURCE_ID;
@@ -233,6 +233,14 @@ export async function updateProject(
         });
 
   return { page, content };
+}
+
+export function editProjectBody(
+  pageId: string,
+  edits: PageBodyEdit[],
+  allowDeletingContent?: boolean,
+) {
+  return editPageBody(pageId, edits, allowDeletingContent);
 }
 
 export function deleteProject(pageId: string) {
