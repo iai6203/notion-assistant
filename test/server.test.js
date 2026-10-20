@@ -82,6 +82,7 @@ test("exposes server information over MCP stdio", async () => {
         "update-project",
         "edit-project-body",
         "delete-project",
+        "get-comments",
       ],
     );
 
@@ -94,7 +95,9 @@ test("exposes server information over MCP stdio", async () => {
 
     const getNotesSchema = getTool(tools, "get-notes").inputSchema;
     const getProjectsSchema = getTool(tools, "get-projects").inputSchema;
-    for (const schema of [getNotesSchema, getProjectsSchema]) {
+    const getCommentsSchema = getTool(tools, "get-comments").inputSchema;
+    assertRequired(getCommentsSchema, "blockId");
+    for (const schema of [getNotesSchema, getProjectsSchema, getCommentsSchema]) {
       assert.equal(schema.properties.pageSize.type, "integer");
       assert.equal(schema.properties.pageSize.minimum, 1);
       assert.equal(schema.properties.pageSize.maximum, 100);
@@ -199,9 +202,19 @@ test("exposes server information over MCP stdio", async () => {
       />=1/,
     );
 
-    for (const name of ["get-notes", "get-projects"]) {
-      await assertValidationError(client, name, { pageSize: 0 }, />=1/);
-      await assertValidationError(client, name, { pageSize: 101 }, /<=100/);
+    for (const name of ["get-notes", "get-projects", "get-comments"]) {
+      await assertValidationError(
+        client,
+        name,
+        { blockId: "page-id", pageSize: 0 },
+        />=1/,
+      );
+      await assertValidationError(
+        client,
+        name,
+        { blockId: "page-id", pageSize: 101 },
+        /<=100/,
+      );
     }
 
     const result = await client.callTool({ name: "get-server-info" });

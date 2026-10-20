@@ -3,6 +3,7 @@ import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import * as z from "zod/v4";
 
 import { registerAreaResourceTools } from "./tools/area-resource.tool.js";
+import { registerCommentTools } from "./tools/comment.tool.js";
 import { registerNoteTools } from "./tools/note.tool.js";
 import { registerProjectTools } from "./tools/project.tool.js";
 
@@ -53,6 +54,7 @@ function buildServer(): McpServer {
   registerAreaResourceTools(server);
   registerNoteTools(server);
   registerProjectTools(server);
+  registerCommentTools(server);
 
   return server;
 }
