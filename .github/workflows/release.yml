@@ -44,6 +44,18 @@ jobs:
       - name: Test and build
         run: npm test
 
+      - name: Fetch annotated tag
+        run: git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
+
+      - name: Extract release notes from tag
+        run: |
+          if [ "$(git cat-file -t "$GITHUB_REF_NAME")" != "tag" ]; then
+            echo "Tag $GITHUB_REF_NAME is not an annotated tag"
+            exit 1
+          fi
+
+          git tag --list --format='%(contents)' "$GITHUB_REF_NAME" | tail -n +3 > "$RUNNER_TEMP/release-notes.md"
+
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -52,4 +64,4 @@ jobs:
           build/index.js
           --verify-tag
           --title "$GITHUB_REF_NAME"
-          --generate-notes
+          --notes-file "$RUNNER_TEMP/release-notes.md"
