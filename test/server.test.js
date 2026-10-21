@@ -275,7 +275,7 @@ test("exposes server information over MCP stdio", async () => {
     const result = await client.callTool({ name: "get-server-info" });
     assert.deepEqual(result.structuredContent, {
       name: "notion-assistant",
-      version: "0.1.0",
+      version: "0.2.0",
       status: "ok",
     });
   } finally {

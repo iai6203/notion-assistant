@@ -9,7 +9,7 @@ import { registerPageBodyTools } from "./tools/page-body.tool.js";
 import { registerProjectTools } from "./tools/project.tool.js";
 
 const SERVER_NAME = "notion-assistant";
-const SERVER_VERSION = "0.1.0";
+const SERVER_VERSION = "0.2.0";
 
 const serverInfoSchema = z.object({
   name: z.string(),
