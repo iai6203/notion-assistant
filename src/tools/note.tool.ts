@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import * as z from "zod/v4";
 
+import { summarizePageList } from "../lib/summary.js";
 import {
   createNote,
   deleteNote,
@@ -14,7 +15,20 @@ import {
   allowDeletingContentSchema,
   pageBodyEditsSchema,
 } from "./page-body-edit.js";
-import { createTextResult } from "./tool-result.js";
+import {
+  detailIncludeSchema,
+  editedAfterSchema,
+  LIST_RESULT_NOTE,
+  pageSizeSchema,
+  sortBySchema,
+  startCursorSchema,
+  titleContainsSchema,
+} from "./query-schemas.js";
+import {
+  createTextResult,
+  summarizePageDetail,
+  summarizeWrite,
+} from "./tool-result.js";
 
 const relationIdsSchema = z
   .array(z.string())
@@ -26,23 +40,29 @@ export function registerNoteTools(server: McpServer): void {
     "get-notes",
     {
       title: "Get Notes",
-      description: "Retrieve notes from the Notion note database.",
+      description: `Search notes in the Notion note database, newest first. ${LIST_RESULT_NOTE}`,
       inputSchema: z.object({
-        startCursor: z
+        titleContains: titleContainsSchema,
+        pinned: z
+          .boolean()
+          .optional()
+          .describe("Only return notes with this pinned state."),
+        areaResourceId: z
           .string()
           .optional()
-          .describe("The pagination cursor returned by a previous request."),
-        pageSize: z
-          .number()
-          .int()
-          .min(1)
-          .max(100)
+          .describe("Only return notes related to this area-resource page."),
+        projectId: z
+          .string()
           .optional()
-          .describe("The number of notes to return."),
+          .describe("Only return notes related to this project page."),
+        editedAfter: editedAfterSchema,
+        sortBy: sortBySchema,
+        startCursor: startCursorSchema,
+        pageSize: pageSizeSchema("notes"),
       }),
     },
-    async ({ startCursor, pageSize }) =>
-      createTextResult(await getNotes({ startCursor, pageSize })),
+    async (filters) =>
+      createTextResult(summarizePageList(await getNotes(filters))),
   );
 
   server.registerTool(
@@ -52,9 +72,13 @@ export function registerNoteTools(server: McpServer): void {
       description: "Retrieve the properties and Markdown body of a Notion note.",
       inputSchema: z.object({
         pageId: z.string().describe("The ID of the Notion note page to retrieve."),
+        include: detailIncludeSchema,
       }),
     },
-    async ({ pageId }) => createTextResult(await getNoteDetail(pageId)),
+    async ({ pageId, include }) =>
+      createTextResult(
+        summarizePageDetail(pageId, await getNoteDetail(pageId, include)),
+      ),
   );
 
   server.registerTool(
@@ -90,17 +114,17 @@ export function registerNoteTools(server: McpServer): void {
       areaResourceIds,
       projectIds,
       relatedNoteIds,
-    }) =>
-      createTextResult(
-        await createNote({
-          title,
-          body,
-          pinned,
-          areaResourceIds,
-          projectIds,
-          relatedNoteIds,
-        }),
-      ),
+    }) => {
+      const page = await createNote({
+        title,
+        body,
+        pinned,
+        areaResourceIds,
+        projectIds,
+        relatedNoteIds,
+      });
+      return createTextResult(summarizeWrite(page));
+    },
   );
 
   server.registerTool(
@@ -156,17 +180,17 @@ export function registerNoteTools(server: McpServer): void {
       areaResourceIds,
       projectIds,
       relatedNoteIds,
-    }) =>
-      createTextResult(
-        await updateNote(pageId, {
-          title,
-          body,
-          pinned,
-          areaResourceIds,
-          projectIds,
-          relatedNoteIds,
-        }),
-      ),
+    }) => {
+      await updateNote(pageId, {
+        title,
+        body,
+        pinned,
+        areaResourceIds,
+        projectIds,
+        relatedNoteIds,
+      });
+      return createTextResult({ id: pageId });
+    },
   );
 
   server.registerTool(
@@ -181,8 +205,10 @@ export function registerNoteTools(server: McpServer): void {
         allowDeletingContent: allowDeletingContentSchema,
       }),
     },
-    async ({ pageId, edits, allowDeletingContent }) =>
-      createTextResult(await editNoteBody(pageId, edits, allowDeletingContent)),
+    async ({ pageId, edits, allowDeletingContent }) => {
+      await editNoteBody(pageId, edits, allowDeletingContent);
+      return createTextResult({ id: pageId });
+    },
   );
 
   server.registerTool(
@@ -194,6 +220,9 @@ export function registerNoteTools(server: McpServer): void {
         pageId: z.string().describe("The ID of the Notion note page to delete."),
       }),
     },
-    async ({ pageId }) => createTextResult(await deleteNote(pageId)),
+    async ({ pageId }) => {
+      await deleteNote(pageId);
+      return createTextResult({ id: pageId, inTrash: true });
+    },
   );
 }

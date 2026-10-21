@@ -1,4 +1,16 @@
-import { editPageBody, notion, type PageBodyEdit } from "../lib/notion.js";
+import {
+  combineFilters,
+  editedAfterFilter,
+  editPageBody,
+  getPageDetail,
+  notion,
+  timestampSorts,
+  type PageBodyEdit,
+  type PageDetailInclude,
+  type QuerySortBy,
+} from "../lib/notion.js";
+
+const LIST_PROPERTIES = ["이름", "고정하기", "영역 · 자원", "프로젝트"];
 
 function getDataSourceId(): string {
   const dataSourceId = process.env.NOTE_DATASOURCE_ID;
@@ -11,26 +23,53 @@ function getDataSourceId(): string {
 }
 
 export function getNotes({
+  titleContains,
+  pinned,
+  areaResourceId,
+  projectId,
+  editedAfter,
+  sortBy,
   startCursor,
   pageSize,
 }: {
+  titleContains?: string;
+  pinned?: boolean;
+  areaResourceId?: string;
+  projectId?: string;
+  editedAfter?: string;
+  sortBy?: QuerySortBy;
   startCursor?: string;
   pageSize?: number;
 } = {}) {
+  const filter = combineFilters([
+    titleContains === undefined
+      ? undefined
+      : { property: "이름", title: { contains: titleContains } },
+    pinned === undefined
+      ? undefined
+      : { property: "고정하기", checkbox: { equals: pinned } },
+    areaResourceId === undefined
+      ? undefined
+      : { property: "영역 · 자원", relation: { contains: areaResourceId } },
+    projectId === undefined
+      ? undefined
+      : { property: "프로젝트", relation: { contains: projectId } },
+    editedAfterFilter(editedAfter),
+  ]);
+
   return notion.dataSources.query({
     data_source_id: getDataSourceId(),
+    filter_properties: LIST_PROPERTIES,
+    result_type: "page",
+    sorts: timestampSorts(sortBy),
+    ...(filter === undefined ? {} : { filter }),
     ...(startCursor === undefined ? {} : { start_cursor: startCursor }),
     ...(pageSize === undefined ? {} : { page_size: pageSize }),
   });
 }
 
-export async function getNoteDetail(pageId: string) {
-  const [page, content] = await Promise.all([
-    notion.pages.retrieve({ page_id: pageId }),
-    notion.pages.retrieveMarkdown({ page_id: pageId }),
-  ]);
-
-  return { page, content };
+export function getNoteDetail(pageId: string, include?: PageDetailInclude) {
+  return getPageDetail(pageId, include);
 }
 
 export function createNote({

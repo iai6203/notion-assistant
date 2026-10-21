@@ -12,7 +12,7 @@ export const pageBodyEditsSchema = z
       newStr: z
         .string()
         .describe(
-          "The Markdown that replaces oldStr. To insert content, repeat oldStr and append the new content.",
+          "The Markdown that replaces oldStr. To only add content, prefer insert-page-body; to replace a long range, prefer replace-page-body-range.",
         ),
       replaceAll: z
         .boolean()

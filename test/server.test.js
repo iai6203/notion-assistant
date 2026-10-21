@@ -58,12 +58,7 @@ test("exposes server information over MCP stdio", async () => {
       tools.map(({ name }) => name),
       [
         "get-server-info",
-        "get-areas",
-        "get-area",
-        "get-resources",
-        "get-resource",
-        "get-archives",
-        "get-archive",
+        "get-area-resources",
         "get-area-resource-detail",
         "get-area-resource-templates",
         "create-area-resource",
@@ -82,6 +77,8 @@ test("exposes server information over MCP stdio", async () => {
         "update-project",
         "edit-project-body",
         "delete-project",
+        "insert-page-body",
+        "replace-page-body-range",
         "get-comments",
       ],
     );
@@ -101,6 +98,52 @@ test("exposes server information over MCP stdio", async () => {
       assert.equal(schema.properties.pageSize.type, "integer");
       assert.equal(schema.properties.pageSize.minimum, 1);
       assert.equal(schema.properties.pageSize.maximum, 100);
+    }
+
+    const getAreaResourcesSchema = getTool(tools, "get-area-resources").inputSchema;
+    assert.deepEqual(getAreaResourcesSchema.properties.status.enum, [
+      "영역",
+      "자원",
+      "아카이브",
+    ]);
+    assert.equal(getAreaResourcesSchema.required?.length ?? 0, 0);
+
+    for (const schema of [getNotesSchema, getProjectsSchema]) {
+      assert.equal(schema.properties.titleContains.type, "string");
+      assert.equal(schema.properties.editedAfter.type, "string");
+      assert.deepEqual(schema.properties.sortBy.enum, [
+        "lastEditedTime",
+        "createdTime",
+      ]);
+    }
+    assert.equal(getNotesSchema.properties.projectId.type, "string");
+    assert.equal(getProjectsSchema.properties.areaResourceId.type, "string");
+
+    for (const name of [
+      "get-note-detail",
+      "get-project-detail",
+      "get-area-resource-detail",
+    ]) {
+      const schema = getTool(tools, name).inputSchema;
+      assert.deepEqual(schema.properties.include.enum, [
+        "all",
+        "properties",
+        "body",
+      ]);
+      assert.equal(schema.required.includes("include"), false);
+    }
+
+    const insertBodySchema = getTool(tools, "insert-page-body").inputSchema;
+    assertRequired(insertBodySchema, "pageId");
+    assertRequired(insertBodySchema, "content");
+    assert.deepEqual(insertBodySchema.properties.position.enum, ["start", "end"]);
+
+    const replaceRangeSchema = getTool(
+      tools,
+      "replace-page-body-range",
+    ).inputSchema;
+    for (const property of ["pageId", "contentRange", "content"]) {
+      assertRequired(replaceRangeSchema, property);
     }
 
     const createNoteSchema = getTool(tools, "create-note").inputSchema;
@@ -202,7 +245,19 @@ test("exposes server information over MCP stdio", async () => {
       />=1/,
     );
 
-    for (const name of ["get-notes", "get-projects", "get-comments"]) {
+    await assertValidationError(
+      client,
+      "insert-page-body",
+      { pageId: "page-id", content: "x", position: "end", after: "y" },
+      /Position and after cannot be provided together\./,
+    );
+
+    for (const name of [
+      "get-notes",
+      "get-projects",
+      "get-area-resources",
+      "get-comments",
+    ]) {
       await assertValidationError(
         client,
         name,

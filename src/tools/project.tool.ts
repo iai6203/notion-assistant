@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import * as z from "zod/v4";
 
+import { summarizePageList } from "../lib/summary.js";
 import {
   createProject,
   deleteProject,
@@ -15,7 +16,20 @@ import {
   allowDeletingContentSchema,
   pageBodyEditsSchema,
 } from "./page-body-edit.js";
-import { createTextResult } from "./tool-result.js";
+import {
+  detailIncludeSchema,
+  editedAfterSchema,
+  LIST_RESULT_NOTE,
+  pageSizeSchema,
+  sortBySchema,
+  startCursorSchema,
+  titleContainsSchema,
+} from "./query-schemas.js";
+import {
+  createTextResult,
+  summarizePageDetail,
+  summarizeWrite,
+} from "./tool-result.js";
 
 const projectStatusSchema = z
   .string()
@@ -61,23 +75,31 @@ export function registerProjectTools(server: McpServer): void {
     "get-projects",
     {
       title: "Get Projects",
-      description: "Retrieve projects from the Notion project database.",
+      description: `Search projects in the Notion project database, newest first. ${LIST_RESULT_NOTE}`,
       inputSchema: z.object({
-        startCursor: z
+        titleContains: titleContainsSchema,
+        status: z
           .string()
           .optional()
-          .describe("The pagination cursor returned by a previous request."),
-        pageSize: z
-          .number()
-          .int()
-          .min(1)
-          .max(100)
+          .describe(
+            "Only return projects with this status. Available values are discoverable with get-project-statuses.",
+          ),
+        archived: z
+          .boolean()
           .optional()
-          .describe("The number of projects to return."),
+          .describe("Only return projects with this archived state."),
+        areaResourceId: z
+          .string()
+          .optional()
+          .describe("Only return projects related to this area-resource page."),
+        editedAfter: editedAfterSchema,
+        sortBy: sortBySchema,
+        startCursor: startCursorSchema,
+        pageSize: pageSizeSchema("projects"),
       }),
     },
-    async ({ startCursor, pageSize }) =>
-      createTextResult(await getProjects({ startCursor, pageSize })),
+    async (filters) =>
+      createTextResult(summarizePageList(await getProjects(filters))),
   );
 
   server.registerTool(
@@ -90,9 +112,13 @@ export function registerProjectTools(server: McpServer): void {
         pageId: z
           .string()
           .describe("The ID of the Notion project page to retrieve."),
+        include: detailIncludeSchema,
       }),
     },
-    async ({ pageId }) => createTextResult(await getProjectDetail(pageId)),
+    async ({ pageId, include }) =>
+      createTextResult(
+        summarizePageDetail(pageId, await getProjectDetail(pageId, include)),
+      ),
   );
 
   server.registerTool(
@@ -128,19 +154,19 @@ export function registerProjectTools(server: McpServer): void {
       archived,
       areaResourceIds,
       noteIds,
-    }) =>
-      createTextResult(
-        await createProject({
-          title,
-          body,
-          status,
-          startDate,
-          endDate,
-          archived,
-          areaResourceIds,
-          noteIds,
-        }),
-      ),
+    }) => {
+      const page = await createProject({
+        title,
+        body,
+        status,
+        startDate,
+        endDate,
+        archived,
+        areaResourceIds,
+        noteIds,
+      });
+      return createTextResult(summarizeWrite(page));
+    },
   );
 
   server.registerTool(
@@ -206,19 +232,19 @@ export function registerProjectTools(server: McpServer): void {
       archived,
       areaResourceIds,
       noteIds,
-    }) =>
-      createTextResult(
-        await updateProject(pageId, {
-          title,
-          body,
-          status,
-          startDate,
-          endDate,
-          archived,
-          areaResourceIds,
-          noteIds,
-        }),
-      ),
+    }) => {
+      await updateProject(pageId, {
+        title,
+        body,
+        status,
+        startDate,
+        endDate,
+        archived,
+        areaResourceIds,
+        noteIds,
+      });
+      return createTextResult({ id: pageId });
+    },
   );
 
   server.registerTool(
@@ -233,8 +259,10 @@ export function registerProjectTools(server: McpServer): void {
         allowDeletingContent: allowDeletingContentSchema,
       }),
     },
-    async ({ pageId, edits, allowDeletingContent }) =>
-      createTextResult(await editProjectBody(pageId, edits, allowDeletingContent)),
+    async ({ pageId, edits, allowDeletingContent }) => {
+      await editProjectBody(pageId, edits, allowDeletingContent);
+      return createTextResult({ id: pageId });
+    },
   );
 
   server.registerTool(
@@ -248,6 +276,9 @@ export function registerProjectTools(server: McpServer): void {
           .describe("The ID of the Notion project page to delete."),
       }),
     },
-    async ({ pageId }) => createTextResult(await deleteProject(pageId)),
+    async ({ pageId }) => {
+      await deleteProject(pageId);
+      return createTextResult({ id: pageId, inTrash: true });
+    },
   );
 }

@@ -1,4 +1,23 @@
-import { editPageBody, notion, type PageBodyEdit } from "../lib/notion.js";
+import {
+  combineFilters,
+  editedAfterFilter,
+  editPageBody,
+  getPageDetail,
+  notion,
+  timestampSorts,
+  type PageBodyEdit,
+  type PageDetailInclude,
+  type QuerySortBy,
+} from "../lib/notion.js";
+
+const LIST_PROPERTIES = [
+  "이름",
+  "상태",
+  "시작일",
+  "종료일",
+  "아카이브",
+  "영역 · 자원",
+];
 
 function getDataSourceId(): string {
   const dataSourceId = process.env.PROJECT_DATASOURCE_ID;
@@ -30,26 +49,53 @@ export async function getProjectStatuses(): Promise<string[]> {
 }
 
 export function getProjects({
+  titleContains,
+  status,
+  archived,
+  areaResourceId,
+  editedAfter,
+  sortBy,
   startCursor,
   pageSize,
 }: {
+  titleContains?: string;
+  status?: string;
+  archived?: boolean;
+  areaResourceId?: string;
+  editedAfter?: string;
+  sortBy?: QuerySortBy;
   startCursor?: string;
   pageSize?: number;
 } = {}) {
+  const filter = combineFilters([
+    titleContains === undefined
+      ? undefined
+      : { property: "이름", title: { contains: titleContains } },
+    status === undefined
+      ? undefined
+      : { property: "상태", status: { equals: status } },
+    archived === undefined
+      ? undefined
+      : { property: "아카이브", checkbox: { equals: archived } },
+    areaResourceId === undefined
+      ? undefined
+      : { property: "영역 · 자원", relation: { contains: areaResourceId } },
+    editedAfterFilter(editedAfter),
+  ]);
+
   return notion.dataSources.query({
     data_source_id: getDataSourceId(),
+    filter_properties: LIST_PROPERTIES,
+    result_type: "page",
+    sorts: timestampSorts(sortBy),
+    ...(filter === undefined ? {} : { filter }),
     ...(startCursor === undefined ? {} : { start_cursor: startCursor }),
     ...(pageSize === undefined ? {} : { page_size: pageSize }),
   });
 }
 
-export async function getProjectDetail(pageId: string) {
-  const [page, content] = await Promise.all([
-    notion.pages.retrieve({ page_id: pageId }),
-    notion.pages.retrieveMarkdown({ page_id: pageId }),
-  ]);
-
-  return { page, content };
+export function getProjectDetail(pageId: string, include?: PageDetailInclude) {
+  return getPageDetail(pageId, include);
 }
 
 export function createProject({

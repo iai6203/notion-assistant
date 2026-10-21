@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import * as z from "zod/v4";
 
+import { summarizeCommentList } from "../lib/summary.js";
 import { getComments } from "../services/comment.service.js";
 
 import { createTextResult } from "./tool-result.js";
@@ -30,6 +31,10 @@ export function registerCommentTools(server: McpServer): void {
       }),
     },
     async ({ blockId, startCursor, pageSize }) =>
-      createTextResult(await getComments({ blockId, startCursor, pageSize })),
+      createTextResult(
+        summarizeCommentList(
+          await getComments({ blockId, startCursor, pageSize }),
+        ),
+      ),
   );
 }

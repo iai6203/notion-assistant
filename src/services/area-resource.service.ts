@@ -1,4 +1,14 @@
-import { editPageBody, notion, type PageBodyEdit } from "../lib/notion.js";
+import {
+  combineFilters,
+  editPageBody,
+  getPageDetail,
+  notion,
+  timestampSorts,
+  type PageBodyEdit,
+  type PageDetailInclude,
+} from "../lib/notion.js";
+
+const LIST_PROPERTIES = ["이름", "상태"];
 
 export type AreaResourceStatus = "영역" | "자원" | "아카이브";
 
@@ -17,31 +27,39 @@ function getDataSourceId(): string {
   return dataSourceId;
 }
 
-function queryByStatus(status: AreaResourceStatus) {
-  return notion.dataSources.query({
-    data_source_id: getDataSourceId(),
-    filter: {
-      property: "상태",
-      status: { equals: status },
-    },
-  });
-}
+export function getAreaResources({
+  status,
+  name,
+  titleContains,
+  startCursor,
+  pageSize,
+}: {
+  status?: AreaResourceStatus;
+  name?: string;
+  titleContains?: string;
+  startCursor?: string;
+  pageSize?: number;
+} = {}) {
+  const filter = combineFilters([
+    status === undefined
+      ? undefined
+      : { property: "상태", status: { equals: status } },
+    name === undefined
+      ? undefined
+      : { property: "이름", title: { equals: name } },
+    titleContains === undefined
+      ? undefined
+      : { property: "이름", title: { contains: titleContains } },
+  ]);
 
-function queryByName(name: string, status: AreaResourceStatus) {
   return notion.dataSources.query({
     data_source_id: getDataSourceId(),
-    filter: {
-      and: [
-        {
-          property: "상태",
-          status: { equals: status },
-        },
-        {
-          property: "이름",
-          title: { equals: name },
-        },
-      ],
-    },
+    filter_properties: LIST_PROPERTIES,
+    result_type: "page",
+    sorts: timestampSorts(),
+    ...(filter === undefined ? {} : { filter }),
+    ...(startCursor === undefined ? {} : { start_cursor: startCursor }),
+    ...(pageSize === undefined ? {} : { page_size: pageSize }),
   });
 }
 
@@ -62,13 +80,11 @@ export function getAreaResourceTemplates({
   });
 }
 
-export async function getAreaResourceDetail(pageId: string) {
-  const [page, content] = await Promise.all([
-    notion.pages.retrieve({ page_id: pageId }),
-    notion.pages.retrieveMarkdown({ page_id: pageId }),
-  ]);
-
-  return { page, content };
+export function getAreaResourceDetail(
+  pageId: string,
+  include?: PageDetailInclude,
+) {
+  return getPageDetail(pageId, include);
 }
 
 export function createAreaResource({
@@ -165,28 +181,4 @@ export function editAreaResourceBody(
   allowDeletingContent?: boolean,
 ) {
   return editPageBody(pageId, edits, allowDeletingContent);
-}
-
-export function getAreas() {
-  return queryByStatus("영역");
-}
-
-export function getArea(name: string) {
-  return queryByName(name, "영역");
-}
-
-export function getResources() {
-  return queryByStatus("자원");
-}
-
-export function getResource(name: string) {
-  return queryByName(name, "자원");
-}
-
-export function getArchives() {
-  return queryByStatus("아카이브");
-}
-
-export function getArchive(name: string) {
-  return queryByName(name, "아카이브");
 }

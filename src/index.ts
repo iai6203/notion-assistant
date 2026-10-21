@@ -5,6 +5,7 @@ import * as z from "zod/v4";
 import { registerAreaResourceTools } from "./tools/area-resource.tool.js";
 import { registerCommentTools } from "./tools/comment.tool.js";
 import { registerNoteTools } from "./tools/note.tool.js";
+import { registerPageBodyTools } from "./tools/page-body.tool.js";
 import { registerProjectTools } from "./tools/project.tool.js";
 
 const SERVER_NAME = "notion-assistant";
@@ -54,6 +55,7 @@ function buildServer(): McpServer {
   registerAreaResourceTools(server);
   registerNoteTools(server);
   registerProjectTools(server);
+  registerPageBodyTools(server);
   registerCommentTools(server);
 
   return server;

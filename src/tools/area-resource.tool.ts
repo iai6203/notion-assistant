@@ -1,17 +1,13 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import * as z from "zod/v4";
 
+import { summarizePageList } from "../lib/summary.js";
 import {
   createAreaResource,
   editAreaResourceBody,
-  getArchive,
-  getArchives,
-  getArea,
-  getAreas,
   getAreaResourceDetail,
+  getAreaResources,
   getAreaResourceTemplates,
-  getResource,
-  getResources,
   updateAreaResource,
 } from "../services/area-resource.service.js";
 
@@ -19,7 +15,20 @@ import {
   allowDeletingContentSchema,
   pageBodyEditsSchema,
 } from "./page-body-edit.js";
-import { createTextResult } from "./tool-result.js";
+import {
+  detailIncludeSchema,
+  LIST_RESULT_NOTE,
+  pageSizeSchema,
+  startCursorSchema,
+  titleContainsSchema,
+} from "./query-schemas.js";
+import {
+  createTextResult,
+  summarizePageDetail,
+  summarizeWrite,
+} from "./tool-result.js";
+
+const areaResourceStatusSchema = z.enum(["영역", "자원", "아카이브"]);
 
 const areaResourceTemplateSchema = z.object({
   type: z.literal("template_id"),
@@ -28,69 +37,25 @@ const areaResourceTemplateSchema = z.object({
 
 export function registerAreaResourceTools(server: McpServer): void {
   server.registerTool(
-    "get-areas",
+    "get-area-resources",
     {
-      title: "Get Areas",
-      description: "Retrieve all areas from the Notion area-resource database.",
-      inputSchema: z.object({}),
-    },
-    async () => createTextResult(await getAreas()),
-  );
-
-  server.registerTool(
-    "get-area",
-    {
-      title: "Get Area",
-      description: "Retrieve an area by its exact name from the Notion area-resource database.",
+      title: "Get Area Resources",
+      description: `Search areas, resources, and archives, which share one Notion database and differ by status. ${LIST_RESULT_NOTE}`,
       inputSchema: z.object({
-        name: z.string().describe("The exact name of the area to retrieve."),
+        status: areaResourceStatusSchema
+          .optional()
+          .describe("Only return pages with this status: 영역 (area), 자원 (resource), or 아카이브 (archive)."),
+        name: z
+          .string()
+          .optional()
+          .describe("Only return pages whose title exactly matches this name."),
+        titleContains: titleContainsSchema,
+        startCursor: startCursorSchema,
+        pageSize: pageSizeSchema("pages"),
       }),
     },
-    async ({ name }) => createTextResult(await getArea(name)),
-  );
-
-  server.registerTool(
-    "get-resources",
-    {
-      title: "Get Resources",
-      description: "Retrieve all resources from the Notion area-resource database.",
-      inputSchema: z.object({}),
-    },
-    async () => createTextResult(await getResources()),
-  );
-
-  server.registerTool(
-    "get-resource",
-    {
-      title: "Get Resource",
-      description: "Retrieve a resource by its exact name from the Notion area-resource database.",
-      inputSchema: z.object({
-        name: z.string().describe("The exact name of the resource to retrieve."),
-      }),
-    },
-    async ({ name }) => createTextResult(await getResource(name)),
-  );
-
-  server.registerTool(
-    "get-archives",
-    {
-      title: "Get Archives",
-      description: "Retrieve all archives from the Notion area-resource database.",
-      inputSchema: z.object({}),
-    },
-    async () => createTextResult(await getArchives()),
-  );
-
-  server.registerTool(
-    "get-archive",
-    {
-      title: "Get Archive",
-      description: "Retrieve an archive by its exact name from the Notion area-resource database.",
-      inputSchema: z.object({
-        name: z.string().describe("The exact name of the archive to retrieve."),
-      }),
-    },
-    async ({ name }) => createTextResult(await getArchive(name)),
+    async (filters) =>
+      createTextResult(summarizePageList(await getAreaResources(filters))),
   );
 
   server.registerTool(
@@ -101,10 +66,16 @@ export function registerAreaResourceTools(server: McpServer): void {
         "Retrieve the properties and Markdown body of an area, resource, or archive Notion page.",
       inputSchema: z.object({
         pageId: z.string().describe("The ID of the Notion page to retrieve."),
+        include: detailIncludeSchema,
       }),
     },
-    async ({ pageId }) =>
-      createTextResult(await getAreaResourceDetail(pageId)),
+    async ({ pageId, include }) =>
+      createTextResult(
+        summarizePageDetail(
+          pageId,
+          await getAreaResourceDetail(pageId, include),
+        ),
+      ),
   );
 
   server.registerTool(
@@ -115,23 +86,26 @@ export function registerAreaResourceTools(server: McpServer): void {
         "List templates available in the Notion area-resource database.",
       inputSchema: z.object({
         name: z.string().optional().describe("Filter templates by name."),
-        startCursor: z
-          .string()
-          .optional()
-          .describe("The pagination cursor returned by a previous request."),
-        pageSize: z
-          .number()
-          .int()
-          .min(1)
-          .max(100)
-          .optional()
-          .describe("The number of templates to return."),
+        startCursor: startCursorSchema,
+        pageSize: pageSizeSchema("templates"),
       }),
     },
-    async ({ name, startCursor, pageSize }) =>
-      createTextResult(
-        await getAreaResourceTemplates({ name, startCursor, pageSize }),
-      ),
+    async ({ name, startCursor, pageSize }) => {
+      const { templates, next_cursor } = await getAreaResourceTemplates({
+        name,
+        startCursor,
+        pageSize,
+      });
+
+      return createTextResult({
+        templates: templates.map(({ id, name, is_default }) => ({
+          id,
+          name,
+          ...(is_default ? { isDefault: true } : {}),
+        })),
+        ...(next_cursor === null ? {} : { nextCursor: next_cursor }),
+      });
+    },
   );
 
   server.registerTool(
@@ -143,9 +117,9 @@ export function registerAreaResourceTools(server: McpServer): void {
       inputSchema: z
         .object({
           title: z.string().describe("The page title."),
-          status: z
-            .enum(["영역", "자원", "아카이브"])
-            .describe("The area-resource status."),
+          status: areaResourceStatusSchema.describe(
+            "The area-resource status.",
+          ),
           body: z
             .string()
             .optional()
@@ -162,7 +136,9 @@ export function registerAreaResourceTools(server: McpServer): void {
     },
     async ({ title, status, body, template }) =>
       createTextResult(
-        await createAreaResource({ title, status, body, template }),
+        summarizeWrite(
+          await createAreaResource({ title, status, body, template }),
+        ),
       ),
   );
 
@@ -176,8 +152,7 @@ export function registerAreaResourceTools(server: McpServer): void {
         .object({
           pageId: z.string().describe("The ID of the Notion page to update."),
           title: z.string().optional().describe("The new page title."),
-          status: z
-            .enum(["영역", "자원", "아카이브"])
+          status: areaResourceStatusSchema
             .optional()
             .describe("The new area-resource status."),
           body: z
@@ -191,10 +166,10 @@ export function registerAreaResourceTools(server: McpServer): void {
           { message: "At least one of title, status, or body is required." },
         ),
     },
-    async ({ pageId, title, status, body }) =>
-      createTextResult(
-        await updateAreaResource(pageId, { title, status, body }),
-      ),
+    async ({ pageId, title, status, body }) => {
+      await updateAreaResource(pageId, { title, status, body });
+      return createTextResult({ id: pageId });
+    },
   );
 
   server.registerTool(
@@ -209,7 +184,9 @@ export function registerAreaResourceTools(server: McpServer): void {
         allowDeletingContent: allowDeletingContentSchema,
       }),
     },
-    async ({ pageId, edits, allowDeletingContent }) =>
-      createTextResult(await editAreaResourceBody(pageId, edits, allowDeletingContent)),
+    async ({ pageId, edits, allowDeletingContent }) => {
+      await editAreaResourceBody(pageId, edits, allowDeletingContent);
+      return createTextResult({ id: pageId });
+    },
   );
 }
